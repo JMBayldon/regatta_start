@@ -42,12 +42,12 @@ void beep_off();
 void horn_on();
 void horn_off();
 void update_display();
+void interval_beeps();
 
 
 
 void setup() {
-  // put your setup code here, to run once:
-  // setup serial
+  // setup serial uses pins 0,1 on teensy LC
   Serial1.begin(9600);
   pinMode(HORN_PIN,OUTPUT);
   start_sequence = 0;
@@ -82,7 +82,7 @@ void loop() {
         horn_timer = millis()+ SHORT_HORN;
     }
   }
-  //actions
+  //actions these work in all states
   if (millis()>horn_timer){
     horn_off();
   }
@@ -93,24 +93,13 @@ void loop() {
     update_display();
   }
 
-  if (timer_state != WAITING){
 
-    if ((start_time-millis())%(1000L*60)<1){
-    beep_on();
-    beep_timer = millis()+LONG_BEEP;
-  }
-  else if ((start_time-millis())%(1000L*15)<1){
-    beep_on();
-    beep_timer = millis()+SHORT_BEEP;
-  }
-  }
-
-  
   curr_time = start_time - millis();
   
-  // put your main code here, to run repeatedly:
+  // state handling, put code for the state into the handling case:
   switch(timer_state){
     case ORANGE:
+    interval_beeps();
       if (curr_time<FIVE){
         timer_state = WARNING;
         horn_on();
@@ -118,12 +107,15 @@ void loop() {
       }
       break;
      case WARNING:
+     interval_beeps();
+      //countdown beeps
       if (curr_time< FOUR +1000L*4){
         if (curr_time%(1000L)<1){
           beep_on();
           beep_timer = millis() + SHORT_BEEP;
         }
       }
+      //change state to prep with 4 to go
       if (curr_time<FOUR){
         timer_state = PREP;
         horn_on();
@@ -133,12 +125,15 @@ void loop() {
       }
       break;
      case PREP:
+      interval_beeps();
+      //countdown beeps
        if (curr_time< ONE+1000L*4){
         if (curr_time%(1000L)<1){
           beep_on();
           beep_timer = millis() + SHORT_BEEP;
         }
       }
+      //chnage state with one minute to go
       if (curr_time<ONE){
         timer_state = READY_TO_START;
         horn_on();
@@ -148,12 +143,15 @@ void loop() {
       }
       break;
      case READY_TO_START:
-           if (curr_time< 1000L*4){
+        interval_beeps();
+        //coundown beeps
+        if (curr_time< 1000L*4){
         if (curr_time%(1000L)<1){
           beep_on();
           beep_timer = millis() + SHORT_BEEP;
         }
       }
+      //chnage state at start
       if (curr_time<0){
         start_time = millis()+FIVE;
         timer_state = WARNING;
@@ -164,11 +162,10 @@ void loop() {
       }
       break;
      case AP:
+     //not set up yet
       break;
      case WAITING:
-      //start_time = millis() + FIVE + FIVE;
-      //horn_off();
-      //beep_off();
+      // change case once the start_sequence flag is set
       if (start_sequence){
         start_time = millis() + FIVE + FIVE;
         timer_state = ORANGE;
@@ -183,6 +180,23 @@ void loop() {
 
 }
 
+void interval_beeps(){
+    // timing beeps at 15's and minutes
+    //long beep every minute
+    if ((start_time-millis())%(1000L*60)<1){
+    beep_on();
+    beep_timer = millis()+LONG_BEEP;
+    }
+    //short beep every 15 seconds
+    else if ((start_time-millis())%(1000L*15)<1){
+    beep_on();
+    beep_timer = millis()+SHORT_BEEP;
+  }
+  
+}
+
+
+
 void horn_on(){
   digitalWrite(HORN_PIN,HIGH);
 }
@@ -192,15 +206,15 @@ void horn_off(){
 }
 
 void beep_on(){
-  tone(9,440);
+  tone(BEEP_PIN,440);
 }
 
 void beep_off(){
-  noTone(9);
+  noTone(BEEP_PIN);
 }
 
 void update_display(){
-  //for now display send info to bluetooth. modify here for other display
+  //for now display send info to bluetooth. modify here for other displays
   long curr_time = start_time-millis();
   String out_string = String(curr_time/1000/60);
   if (out_string.length()<2){
